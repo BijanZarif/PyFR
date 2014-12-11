@@ -11,6 +11,7 @@
 <%pyfr:kernel name='bccflux' ndim='1'
               ul='inout view fpdtype_t[${str(nvars)}]'
               gradul='in view fpdtype_t[${str(ndims)}][${str(nvars)}]'
+              amul='in view fpdtype_t'
               nl='in fpdtype_t[${str(ndims)}]'
               magnl='in fpdtype_t'>
     // Viscous states
@@ -19,7 +20,7 @@
     ${pyfr.expand('bc_ldg_grad_state', 'ul', 'nl', 'gradul', 'gradur')};
 
     fpdtype_t fvr[${ndims}][${nvars}] = {{0}};
-    ${pyfr.expand('viscous_flux_add', 'ur', 'gradur', 'fvr')};
+    ${pyfr.expand('viscous_flux_add', 'ur', 'gradur', 'amul', 'fvr')};
 
     // Inviscid (Riemann solve) state
     ${pyfr.expand('bc_rsolve_state', 'ul', 'nl', 'ur')};

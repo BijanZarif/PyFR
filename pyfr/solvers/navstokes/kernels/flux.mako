@@ -2,7 +2,7 @@
 <%namespace module='pyfr.backends.base.makoutil' name='pyfr'/>
 
 % if ndims == 2:
-<%pyfr:macro name='viscous_flux_add' params='uin, grad_uin, fout'>
+<%pyfr:macro name='viscous_flux_add' params='uin, grad_uin, amuin, fout'>
     fpdtype_t rho = uin[0], rhou = uin[1], rhov = uin[2], E = uin[3];
 
     fpdtype_t rcprho = 1.0/rho;
@@ -28,6 +28,10 @@
                    / (cpT + ${c['cpTs']});
 % else:
     fpdtype_t mu_c = ${c['mu']};
+% endif
+
+% if art_vis == 'mu':
+    mu_c += amuin;
 % endif
 
     // Compute temperature derivatives (c_v*dT/d[x,y])
@@ -81,6 +85,10 @@
                    / (cpT + ${c['cpTs']});
 % else:
     fpdtype_t mu_c = ${c['mu']};
+% endif
+
+% if art_vis == 'mu':
+    mu_c += amuin;
 % endif
 
     // Compute temperature derivatives (c_v*dT/d[x,y,z])

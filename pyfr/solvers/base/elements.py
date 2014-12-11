@@ -164,6 +164,14 @@ class BaseElements(object):
         self._scal_upts_temp = backend.matrix(inb.ioshape, aliases=aliases,
                                               tags=inb.tags)
 
+        # Allocate required scratch space for artificial viscosity
+        if self.cfg.get('solver-avis', 'amu0', '0'):
+            self._avis_upts = avis = alloc('avis_upts', (nupts, 1, neles))
+            self._avis_fpts = alloc('avis_fpts', (nfpts, 1, neles))
+            aliases = next((m for m in abufs if m.nbytes >= avis.nbytes), None)
+            self._avis_upts_temp = backend.matrix(avis.ioshape, aliases=aliases,
+                                              tags=avis.tags)
+
     @memoize
     def opmat(self, expr):
         return self._be.const_matrix(self._basis.opmat(expr),
@@ -273,3 +281,11 @@ class BaseElements(object):
         rcstri = ((self.nfpts, self._vect_fpts.leadsubdim),)*nfp
 
         return (self._vect_fpts.mid,)*nfp, rcmap, rcstri
+
+    def get_avis_fpts_for_inter(self, eidx, fidx):
+        nfp = self.nfacefpts[fidx]
+
+        rcmap = [(fpidx, eidx) for fpidx in self._srtd_face_fpts[fidx][eidx]]
+        cstri = ((self._avis_fpts.leadsubdim,),)*nfp
+
+        return (self._avis_fpts.mid,)*nfp, rcmap, cstri

@@ -19,6 +19,11 @@ class BaseAdvectionDiffusionIntInters(BaseAdvectionIntInters):
         # Additional kernel constants
         self._tpl_c.update(cfg.items_as('solver-interfaces', float))
 
+        # Generate the additional view matrices for artificial Viscosity
+        if self.cfg.get('solver-avis', 'amu0', '0'):
+            self._avis0_lhs = self._avis_view(lhs, 'get_avis_fpts_for_inter')
+            self._avis0_rhs = self._avis_view(rhs, 'get_avis_fpts_for_inter')
+
     def _gen_perm(self, lhs, rhs):
         # In the special case of β = -0.5 it is better to sort by the
         # RHS interface; otherwise we simply opt for the LHS
@@ -78,6 +83,35 @@ class BaseAdvectionDiffusionMPIInters(BaseAdvectionMPIInters):
             self.kernels['vect_fpts_recv'] = lambda: NullMPIKernel()
             self.kernels['vect_fpts_unpack'] = lambda: NullComputeKernel()
 
+        # Generate the additional view matrices for artificial Viscosity
+        if self.cfg.get('solver-avis', 'amu0', '0'):
+            self._avis0_lhs = self._avis_xchg_view(lhs, 'get_avis_fpts_for_inter')
+            self._avis0_rhs = be.xchg_matrix_for_view(self._avis0_lhs)
+
+            # If we need to send our gradients to the RHS
+            if self._tpl_c['ldg-beta'] != -0.5:
+                self.kernels['avis_fpts_pack'] = lambda: be.kernel(
+                    'pack', self._avis0_lhs
+                )
+                self.kernels['avis_fpts_send'] = lambda: be.kernel(
+                    'send_pack', self._avis0_lhs, self._rhsrank, self.MPI_TAG
+                )
+            else:
+                self.kernels['avis_fpts_pack'] = lambda: NullComputeKernel()
+                self.kernels['avis_fpts_send'] = lambda: NullMPIKernel()
+
+            # If we need to recv gradients from the RHS
+            if self._tpl_c['ldg-beta'] != 0.5:
+                self.kernels['avis_fpts_recv'] = lambda: be.kernel(
+                    'recv_pack', self._avis0_rhs, self._rhsrank, self.MPI_TAG
+                )
+                self.kernels['avis_fpts_unpack'] = lambda: be.kernel(
+                    'unpack', self._avis0_rhs
+                )
+            else:
+                self.kernels['avis_fpts_recv'] = lambda: NullMPIKernel()
+                self.kernels['avis_fpts_unpack'] = lambda: NullComputeKernel()
+
 
 class BaseAdvectionDiffusionBCInters(BaseAdvectionBCInters):
     def __init__(self, be, lhs, elemap, cfgsect, cfg):
@@ -89,3 +123,7 @@ class BaseAdvectionDiffusionBCInters(BaseAdvectionBCInters):
 
         # Additional kernel constants
         self._tpl_c.update(cfg.items_as('solver-interfaces', float))
+
+        # Generate the additional view matrices for artificial Viscosity
+        if self.cfg.get('solver-avis', 'amu0', '0'):
+            self._avis0_lhs = self._avis_view(lhs, 'get_avis_fpts_for_inter')
