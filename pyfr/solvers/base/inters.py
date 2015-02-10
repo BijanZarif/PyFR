@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from pyfr.util import memoize
+
 
 def _get_inter_objs(interside, getter, elemap):
     # Map from element type to view mat getter
@@ -28,6 +30,9 @@ class BaseInters(object):
         # Get the number of dimensions and variables
         self.ndims = next(iter(elemap.values())).ndims
         self.nvars = next(iter(elemap.values())).nvars
+
+        # Get privarmap for moving grid
+        self._privarmap = next(iter(elemap.values()))._privarmap
 
         # Get the number of interfaces
         self.ninters = len(lhs)
@@ -76,3 +81,47 @@ class BaseInters(object):
 
     def _vect_xchg_view(self, inter, meth):
         return self._xchg_view(inter, meth, (self.ndims, self.nvars))
+
+    def endfpts_at(self, rhs):
+        # Two end face points
+        from pyfr.quadrules import get_quadrule
+        from pyfr.shapes import _proj_pts
+        from pyfr.nputil import fuzzysort
+
+        dist = []
+        for pos in rhs:
+            name, eidx, fidx, flag = pos
+            eles = self._elemap[name].eles[:,eidx,:]
+
+            # 2-D only
+            r = get_quadrule('line', 'gauss-legendre-lobatto', 2)
+            proj = self._elemap[name]._basis.faces[fidx][1]
+            op = self._elemap[name]._basis.sbasis.nodal_basis_at(_proj_pts(proj, r.pts))
+
+            fpts = np.dot(op, eles)
+            idx = fuzzysort(fpts.swapaxes(0,1).tolist(), range(2))
+
+            dist.append(fpts[idx])
+
+        return np.array(dist)
+
+    @memoize
+    def ploc_at(self, lhs):
+        return self._const_mat(lhs, 'get_fpts_for_inter')
+
+    def _rotfvec(self, name, mat):
+        from pyfr.backends.base.kernels import ComputeMetaKernel
+        temp = self._be.matrix(mat.ioshape)
+
+        def rot():
+            mul = self._be.kernel(
+                'mul', self._rotmat, mat,
+                out=temp
+            )
+            copy = self._be.kernel(
+                'copy', mat, temp
+            )
+
+            return ComputeMetaKernel([mul, copy])
+
+        self.kernels[name] = rot

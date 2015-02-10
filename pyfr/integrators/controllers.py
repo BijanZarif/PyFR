@@ -78,6 +78,9 @@ class NoneController(BaseController):
             # Take the step
             idxcurr = self.step(self.tcurr, dt)
 
+            # Grid Rotation
+            self._system.rotate_grid(dt)
+
             # We are not adaptive, so accept every step
             self._accept_step(dt, idxcurr)
 

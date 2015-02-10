@@ -126,3 +126,60 @@ class BaseAdvectionElements(BaseElements):
             plocpts = None
 
         return dict(ndims=self.ndims, nvars=self.nvars, srcex=srcex), plocpts
+
+# Grid velocity terms
+def get_mv_grid_terms(self, cfg, privarmap, where):
+    # Variable and function substitutions
+    subs = cfg.items('constants')
+    subs.update(x='ploc[0]', y='ploc[1]', z='ploc[2]')
+    subs.update(abs='fabs', pi=repr(math.pi))
+
+    # Moving term
+    mvex = []
+
+    # Check mode : translation or rotation
+    mode = cfg.get('solver-moving-terms', 'mode', None)
+
+    if mode == 'translation':
+        for v in privarmap[self.ndims][1:-1]:
+            ex = cfg.get('solver-moving-terms', v, '0')
+
+            # Append
+            mvex.append(ex)
+
+    elif mode == 'rotation':
+        # Currently 2-D only
+        rot_vel = cfg.get('solver-moving-terms', 'rot-vel', '0')
+
+        rot_orig = eval(cfg.get('solver-moving-terms', 'rot-orig', '(0.0, 0.0, 0.0)'))
+        dx = '(x-'+str(rot_orig[0])+')'
+        dy = '(y-'+str(rot_orig[1])+')'
+
+        mvex.append(' -' + rot_vel +'*' + dy)
+        mvex.append(' +' + rot_vel +'*' + dx)
+
+    else:
+        print('Invalid mode')
+        mode = None
+
+    # Parsing grid velocity term
+    for i, ex in enumerate(mvex):
+        # Substitute variables
+        mvex[i] = '('+re.sub(r'\b({0})\b'.format('|'.join(subs)),
+                    lambda m: subs[m.group(1)], ex)+')'
+
+    # Find the moving mesh
+    pe = cfg.get('solver-moving-terms', 'moving_id', None)
+    ismove = 0.0
+
+    from pyfr.mpiutil import get_comm_rank_root
+    comm, rank, root = get_comm_rank_root()
+    if str(rank) == pe:
+        ismove = 1.0
+
+    if any('ploc' in ex for ex in mvex):
+        plocpts = self.ploc_at(where)
+    else:
+        plocpts = None
+
+    return dict(mvex=mvex, ismv=ismove), mode, plocpts

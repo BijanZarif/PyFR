@@ -5,6 +5,7 @@ import numpy as np
 from pyfr.solvers.baseadvecdiff import (BaseAdvectionDiffusionBCInters,
                                         BaseAdvectionDiffusionIntInters,
                                         BaseAdvectionDiffusionMPIInters)
+from pyfr.solvers.baseadvec.elements import get_mv_grid_terms
 
 
 class NavierStokesIntInters(BaseAdvectionDiffusionIntInters):
@@ -25,13 +26,22 @@ class NavierStokesIntInters(BaseAdvectionDiffusionIntInters):
             ulin=self._scal0_lhs, urin=self._scal0_rhs,
             ulout=self._vect0_lhs, urout=self._vect0_rhs
         )
+
+        # Update moving grid velocity terms
+        mvex, mode, plocfpt = get_mv_grid_terms(self, self.cfg, self._privarmap, args[1])
+        tplargs.update(mvex)
+
         self.kernels['comm_flux'] = lambda: self._be.kernel(
             'intcflux', tplargs=tplargs, dims=[self.ninterfpts],
              ul=self._scal0_lhs, ur=self._scal0_rhs,
              gradul=self._vect0_lhs, gradur=self._vect0_rhs,
              magnl=self._mag_pnorm_lhs, magnr=self._mag_pnorm_rhs,
-             nl=self._norm_pnorm_lhs
+             nl=self._norm_pnorm_lhs, ploc=plocfpt
         )
+
+        if self.cfg.get('solver-moving-terms', 'mode', None) == 'rotation':
+            self._rotfvec('pnorm_rot', self._norm_pnorm_lhs)
+            self._rotfvec('plocfpts_rot', plocfpt)
 
 
 class NavierStokesMPIInters(BaseAdvectionDiffusionMPIInters):
@@ -51,12 +61,28 @@ class NavierStokesMPIInters(BaseAdvectionDiffusionMPIInters):
             'mpiconu', tplargs=tplargs, dims=[self.ninterfpts],
              ulin=self._scal0_lhs, urin=self._scal0_rhs, ulout=self._vect0_lhs
         )
+
+        # Update moving grid velocity terms
+        mode = None
+        mvex, mode, plocfpt = get_mv_grid_terms(self, self.cfg, self._privarmap, args[1])
+        tplargs.update(mvex)
+
+        if mode is not None:
+            self.kernels['scal_fpts_unpack'] = lambda: self._be.kernel(
+                'unpack_slide', self._scal0_rhs, mode, tplargs['mvex'], tplargs['ismv'], self.endfpts_at(args[1])
+            )
+
         self.kernels['comm_flux'] = lambda: self._be.kernel(
             'mpicflux', tplargs=tplargs, dims=[self.ninterfpts],
              ul=self._scal0_lhs, ur=self._scal0_rhs,
              gradul=self._vect0_lhs, gradur=self._vect0_rhs,
-             magnl=self._mag_pnorm_lhs, nl=self._norm_pnorm_lhs
+             magnl=self._mag_pnorm_lhs, nl=self._norm_pnorm_lhs,
+             ploc=plocfpt
         )
+
+        if self.cfg.get('solver-moving-terms', 'mode', None) == 'rotation':
+            self._rotfvec('pnorm_rot', self._norm_pnorm_lhs)
+            self._rotfvec('plocfpts_rot', plocfpt)
 
 
 class NavierStokesBaseBCInters(BaseAdvectionDiffusionBCInters):
@@ -77,11 +103,21 @@ class NavierStokesBaseBCInters(BaseAdvectionDiffusionBCInters):
              ulin=self._scal0_lhs, ulout=self._vect0_lhs,
              nlin=self._norm_pnorm_lhs
         )
+
+        # Update moving grid velocity terms
+        mvex, mode, plocfpt = get_mv_grid_terms(self, self.cfg, self._privarmap, args[1])
+        tplargs.update(mvex)
+
         self.kernels['comm_flux'] = lambda: self._be.kernel(
             'bccflux', tplargs=tplargs, dims=[self.ninterfpts],
             ul=self._scal0_lhs, gradul=self._vect0_lhs,
-            magnl=self._mag_pnorm_lhs, nl=self._norm_pnorm_lhs
+            magnl=self._mag_pnorm_lhs, nl=self._norm_pnorm_lhs,
+            ploc=plocfpt
         )
+
+        if self.cfg.get('solver-moving-terms', 'mode', None) == 'rotation':
+            self._rotfvec('pnorm_rot', self._norm_pnorm_lhs)
+            self._rotfvec('plocfpts_rot', plocfpt)
 
 
 class NavierStokesNoSlpIsotWallBCInters(NavierStokesBaseBCInters):

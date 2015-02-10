@@ -25,7 +25,7 @@ class BaseAdvectionSystem(BaseSystem):
 
         q2 << kernels['mpiint', 'scal_fpts_send']()
         q2 << kernels['mpiint', 'scal_fpts_recv']()
-        q2 << kernels['mpiint', 'scal_fpts_unpack']()
+        q2 << kernels['mpiint', 'scal_fpts_unpack'](t=t)
 
         runall([q1, q2])
 

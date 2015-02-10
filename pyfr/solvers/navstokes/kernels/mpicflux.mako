@@ -13,7 +13,8 @@
               gradul='in view fpdtype_t[${str(ndims)}][${str(nvars)}]'
               gradur='in mpi fpdtype_t[${str(ndims)}][${str(nvars)}]'
               nl='in fpdtype_t[${str(ndims)}]'
-              magnl='in fpdtype_t'>
+              magnl='in fpdtype_t'
+              ploc='in fpdtype_t[${str(ndims)}]'>
     // Perform the Riemann solve
     fpdtype_t ficomm[${nvars}], fvcomm;
     ${pyfr.expand('rsolve', 'ul', 'ur', 'nl', 'ficomm')};

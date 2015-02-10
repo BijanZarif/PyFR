@@ -12,7 +12,8 @@
               ul='inout view fpdtype_t[${str(nvars)}]'
               gradul='in view fpdtype_t[${str(ndims)}][${str(nvars)}]'
               nl='in fpdtype_t[${str(ndims)}]'
-              magnl='in fpdtype_t'>
+              magnl='in fpdtype_t'
+              ploc='in fpdtype_t[${str(ndims)}]'>
     // Viscous states
     fpdtype_t ur[${nvars}], gradur[${ndims}][${nvars}];
     ${pyfr.expand('bc_ldg_state', 'ul', 'nl', 'ur')};

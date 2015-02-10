@@ -7,7 +7,8 @@
 <%pyfr:kernel name='tflux' ndim='2'
               u='in fpdtype_t[${str(nvars)}]'
               smats='in fpdtype_t[${str(ndims)}][${str(ndims)}]'
-              f='inout fpdtype_t[${str(ndims)}][${str(nvars)}]'>
+              f='inout fpdtype_t[${str(ndims)}][${str(nvars)}]'
+              ploc='in fpdtype_t[${str(ndims)}]'>
     // Compute the flux (F = Fi + Fv)
     fpdtype_t ftemp[${ndims}][${nvars}];
     fpdtype_t p, v[${ndims}];
