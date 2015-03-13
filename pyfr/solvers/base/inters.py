@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from pyfr.util import memoize
+
 
 def _get_inter_objs(interside, getter, elemap):
     # Map from element type to view mat getter
@@ -28,6 +30,9 @@ class BaseInters(object):
         # Get the number of dimensions and variables
         self.ndims = next(iter(elemap.values())).ndims
         self.nvars = next(iter(elemap.values())).nvars
+
+        # Get privarmap for moving grid
+        self._privarmap = next(iter(elemap.values()))._privarmap
 
         # Get the number of interfaces
         self.ninters = len(lhs)
@@ -99,3 +104,7 @@ class BaseInters(object):
             dist.append(fpts[idx])
 
         return np.array(dist)
+
+    @memoize
+    def ploc_at(self, lhs):
+        return self._const_mat(lhs, 'get_fpts_for_inter')

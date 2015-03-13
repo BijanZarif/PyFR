@@ -24,4 +24,11 @@
 % for i, j in pyfr.ndrange(ndims, ndims):
     f[${i}][${j + 1}] = rhov[${i}]*v[${j}]${' + p' if i == j else ''};
 % endfor
+
+    // ALE formulation (-v_g U)
+% for i, ex in enumerate(mvex):
+% for j in range(nvars):
+    f[${i}][${j}] -= ${ismv}*(${ex})*s[${j}];
+% endfor
+% endfor
 </%pyfr:macro>

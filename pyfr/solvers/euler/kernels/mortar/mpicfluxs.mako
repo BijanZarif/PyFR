@@ -4,12 +4,11 @@
 
 <%include file='pyfr.solvers.euler.kernels.rsolvers.${rsolver}'/>
 
-<%pyfr:kernel name='mpicflux' ndim='1'
+<%pyfr:kernel name='mpicfluxs' ndim='1'
               ul='inout view fpdtype_t[${str(nvars)}]'
-              ur='in mpi fpdtype_t[${str(nvars)}]'
+              ur='in view fpdtype_t[${str(nvars)}]'
               nl='in fpdtype_t[${str(ndims)}]'
-              magnl='in fpdtype_t'
-              ploc='in fpdtype_t[${str(ndims)}]'>
+              magnl='in fpdtype_t'>
     // Perform the Riemann solve
     fpdtype_t fn[${nvars}];
     ${pyfr.expand('rsolve', 'ul', 'ur', 'nl', 'fn')};

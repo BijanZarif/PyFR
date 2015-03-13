@@ -29,6 +29,7 @@ class BaseAdvectionSystem(BaseSystem):
 
         runall([q1, q2])
 
+        q1 << kernels['mpiint', 'premortar'](t=t)
         q1 << kernels['mpiint', 'comm_flux']()
         q1 << kernels['eles', 'tdivtconf']()
         if ('eles', 'tdivf_qpts') in kernels:

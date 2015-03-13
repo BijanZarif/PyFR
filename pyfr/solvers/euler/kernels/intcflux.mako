@@ -9,7 +9,8 @@
               ur='inout view fpdtype_t[${str(nvars)}]'
               nl='in fpdtype_t[${str(ndims)}]'
               magnl='in fpdtype_t'
-              magnr='in fpdtype_t'>
+              magnr='in fpdtype_t'
+              ploc='in fpdtype_t[${str(ndims)}]'>
     // Perform the Riemann solve
     fpdtype_t fn[${nvars}];
     ${pyfr.expand('rsolve', 'ul', 'ur', 'nl', 'fn')};

@@ -74,13 +74,13 @@ class BaseElements(object, metaclass=ABCMeta):
         # Construct the physical location operator matrix
         plocop = self._basis.sbasis.nodal_basis_at(self._basis.upts)
 
-        from pyfr.mpiutil import get_comm_rank_root
+        '''from pyfr.mpiutil import get_comm_rank_root
         comm, rank, root = get_comm_rank_root()
 
         eles = self.eles
         dx = 0.2
         if rank == 0:
-            eles[:,:,0] += dx
+            eles[:,:,0] += dx'''
 
         # Apply the operator to the mesh elements and reshape
         plocupts = np.dot(plocop, self.eles.reshape(self.nspts, -1))
@@ -279,3 +279,24 @@ class BaseElements(object, metaclass=ABCMeta):
         rcstri = ((self.nfpts, self._vect_fpts.leadsubdim),)*nfp
 
         return (self._vect_fpts.mid,)*nfp, rcmap, rcstri
+
+    def _gen_fpts(self):
+        basis = self._basis
+        eles = self.eles
+
+        nspts = self.nspts
+        neles = self.neles
+        ndims = self.ndims
+
+        # Construct the physical location operator matrix
+        plocop = basis.sbasis.nodal_basis_at(basis.fpts)
+
+        # Apply the operator to the mesh elements and reshape
+        plocfpts = np.dot(plocop, eles.reshape(nspts, -1))
+        plocfpts = plocfpts.reshape(self.nfpts, neles, ndims)
+
+        self._plocfpts = plocfpts
+
+    def get_fpts_for_inter(self, eidx, fidx):
+        fpts_idx = self._srtd_face_fpts[fidx][eidx]
+        return self._plocfpts[fpts_idx,eidx]
