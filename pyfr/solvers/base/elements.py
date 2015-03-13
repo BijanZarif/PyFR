@@ -74,6 +74,14 @@ class BaseElements(object, metaclass=ABCMeta):
         # Construct the physical location operator matrix
         plocop = self._basis.sbasis.nodal_basis_at(self._basis.upts)
 
+        from pyfr.mpiutil import get_comm_rank_root
+        comm, rank, root = get_comm_rank_root()
+
+        eles = self.eles
+        dx = 0.2
+        if rank == 0:
+            eles[:,:,0] += dx
+
         # Apply the operator to the mesh elements and reshape
         plocupts = np.dot(plocop, self.eles.reshape(self.nspts, -1))
         plocupts = plocupts.reshape(self.nupts, self.neles, self.ndims)

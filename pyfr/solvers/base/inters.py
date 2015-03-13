@@ -76,3 +76,26 @@ class BaseInters(object):
 
     def _vect_xchg_view(self, inter, meth):
         return self._xchg_view(inter, meth, (self.ndims, self.nvars))
+
+    def endfpts_at(self, rhs):
+        # Two end face points
+        from pyfr.quadrules import get_quadrule
+        from pyfr.shapes import _proj_pts
+        from pyfr.nputil import fuzzysort
+
+        dist = []
+        for pos in rhs:
+            name, eidx, fidx, flag = pos
+            eles = self._elemap[name].eles[:,eidx,:]
+
+            # 2-D only
+            r = get_quadrule('line', 'gauss-legendre-lobatto', 2)
+            proj = self._elemap[name]._basis.faces[fidx][1]
+            op = self._elemap[name]._basis.sbasis.nodal_basis_at(_proj_pts(proj, r.pts))
+
+            fpts = np.dot(op, eles)
+            idx = fuzzysort(fpts.swapaxes(0,1).tolist(), range(2))
+
+            dist.append(fpts[idx])
+
+        return np.array(dist)

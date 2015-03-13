@@ -240,6 +240,20 @@ class View(object):
                 backend, np.int32, (1, self.n), cstrides, None, None, tags
             )
 
+    def update(self, matmap, rcmap):
+        # Base offsets and leading dimensions for each point
+        offset = np.empty(self.n, dtype=np.int32)
+        leaddim = np.empty(self.n, dtype=np.int32)
+
+        for m in self._mats:
+            ix = np.where(matmap == m.mid)
+            offset[ix], leaddim[ix] = m.offset // m.itemsize, m.leaddim
+
+        # Go from matrices + (row, column) indcies to displacements
+        # relative to the base allocation address
+        mapping = (offset + rcmap[:,0]*leaddim + rcmap[:,1])[None,:]
+        self.mapping._set(mapping.astype(np.int32))
+
 
 class XchgView(object):
     def __init__(self, backend, matmap, rcmap, stridemap, vshape, tags):
