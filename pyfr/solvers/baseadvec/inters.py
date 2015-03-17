@@ -40,6 +40,9 @@ class BaseAdvectionMPIInters(BaseInters):
 
         const_mat = self._const_mat
 
+        # Ordering for sliding mesh
+        self._gen_perm(lhs)
+
         # Generate the left hand view matrix and its dual
         self._scal0_lhs = self._scal_xchg_view(lhs, 'get_scal_fpts_for_inter')
         self._scal0_rhs = be.xchg_matrix_for_view(self._scal0_lhs)
@@ -60,6 +63,65 @@ class BaseAdvectionMPIInters(BaseInters):
         self.kernels['scal_fpts_unpack'] = lambda: be.kernel(
             'unpack', self._scal0_rhs
         )
+
+    def _gen_perm(self, lhs):
+        fpts = self.endfpts_at(lhs)
+        stride = self.ninterfpts // self.ninters
+        self._perm = self._perm_line(fpts, stride)
+
+    @staticmethod
+    def _perm_line(fpts, stride):
+        import numpy as np
+        swa_fpts = fpts.swapaxes(0, 1)
+        tmp = np.arange(len(swa_fpts[0]), dtype=np.int32)
+        ninter = len(swa_fpts[0])
+
+        end_pts = swa_fpts[1][0]
+        igrp, egrp = 0, 1
+        dir = 1
+        for i in range(ninter - 2):
+            i_curr = abs(tmp[i])
+
+            # Search both side
+            for j in range(ninter):
+                if np.linalg.norm(swa_fpts[igrp][j] - end_pts) < 1e-8:
+                    tmp[i+1] = dir*j
+                    next_pts = swa_fpts[egrp][j]
+                    break
+
+                elif j != i_curr and np.linalg.norm(swa_fpts[egrp][j] - end_pts) < 1e-8:
+                    dir *= -1
+                    tmp[i+1] = dir*j
+                    next_pts = swa_fpts[igrp][j]
+                    igrp, egrp = egrp, igrp
+                    break
+
+            end_pts = next_pts
+
+        # Last Point
+        i += 1
+        i_curr = 0
+        end_pts = swa_fpts[0][0]
+
+        # Search different side
+        for j in range(ninter):
+            if np.linalg.norm(swa_fpts[1][j] - end_pts) < 1e-8:
+                tmp[i+1] = j
+
+            if j != i_curr and np.linalg.norm(swa_fpts[0][j] - end_pts) < 1e-8:
+                tmp[i+1] = -j
+
+        perm = []
+        for t in tmp:
+            if t > -1:
+                perm.append(t*stride + np.arange(stride))
+            else:
+                perm.append((-t+1)*stride - 1 - np.arange(stride))
+
+        perm = np.concatenate(perm)
+
+        return perm
+
 
 
 class BaseAdvectionBCInters(BaseInters):

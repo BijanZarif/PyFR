@@ -26,6 +26,10 @@ class EulerIntInters(BaseAdvectionIntInters):
              nl=self._norm_pnorm_lhs, ploc=plocfpt
         )
 
+        if self.cfg.get('solver-moving-terms', 'mode', None) == 'rotation':
+            self._rotfvec('pnorm_rot', self._norm_pnorm_lhs)
+            self._rotfvec('plocfpts_rot', plocfpt)
+
 
 class EulerMPIInters(BaseAdvectionMPIInters):
     def __init__(self, *args, **kwargs):
@@ -41,13 +45,17 @@ class EulerMPIInters(BaseAdvectionMPIInters):
         mvex, mode, plocfpt = get_mv_grid_terms(self, self.cfg, self._privarmap, args[1])
         tplargs.update(mvex)
 
-        self.kernels['comm_flux'] = lambda: self._be.kernel(
-            'mpicflux', tplargs, dims=[self.ninterfpts],
-             ul=self._scal0_lhs, ur=self._scal0_rhs,
-             magnl=self._mag_pnorm_lhs, nl=self._norm_pnorm_lhs, ploc=plocfpt
-        )
+        if self.cfg.get('solver-moving-terms', 'mode', None) == 'rotation':
+            self._rotfvec('pnorm_rot', self._norm_pnorm_lhs)
+            self._rotfvec('plocfpts_rot', plocfpt)
 
-        if True:
+        if mode is None:
+            self.kernels['comm_flux'] = lambda: self._be.kernel(
+                'mpicflux', tplargs, dims=[self.ninterfpts],
+                 ul=self._scal0_lhs, ur=self._scal0_rhs,
+                 magnl=self._mag_pnorm_lhs, nl=self._norm_pnorm_lhs, ploc=plocfpt
+            )
+        else:
             import functools as ft
             import numpy as np
             import re
@@ -92,6 +100,21 @@ class EulerMPIInters(BaseAdvectionMPIInters):
             matmap = np.array([mscal_tmpm.mid]*self.ninterfpts)
             stridemap = np.array([[mscal_tmpm.leadsubdim]]*self.ninterfpts)
             mscal_tmpv = self._be.view(matmap, rcmap, stridemap, vshape)
+
+            # Original norm and mag for pnorm and ploc_fpts
+            norm_pnorm_int = self._norm_pnorm_lhs
+            mag_pnorm_int = self._mag_pnorm_lhs
+
+            # Additional norm and plocfpts
+            norm_pnorm_lhs0 = self._be.matrix(norm_pnorm_int.ioshape, initval= norm_pnorm_int.get(), tags={'align'})
+            norm_pnorm_lhs1 = self._be.matrix(norm_pnorm_int.ioshape, initval= norm_pnorm_int.get(), tags={'align'})
+
+            if mode == 'rotation':
+                plocfpt_lhs0 = self._be.matrix(plocfpt.ioshape, tags={'align'})
+                plocfpt_lhs1 = self._be.matrix(plocfpt.ioshape, tags={'align'})
+            else:
+                plocfpt_lhs0 = None
+                plocfpt_lhs1 = None
 
             # Register copy and flux kernel
             self._be.pointwise.register('pyfr.solvers.euler.kernels.mortar.mpicfluxs')
@@ -141,6 +164,8 @@ class EulerMPIInters(BaseAdvectionMPIInters):
             lhs = args[1]
             efpts = self.endfpts_at(lhs)
 
+            ismv = tplargs['ismv']
+
             if mode == 'translation':
                 # Translation
                 vs = np.array([eval(v) for v in tplargs['mvex']])
@@ -158,34 +183,16 @@ class EulerMPIInters(BaseAdvectionMPIInters):
                 dist = peri/len(efpts)
                 p2 = efpts[0][1]
                 p1 = efpts[0][0]
-                sign = np.arctan2(p2[1],p2[0]) - np.arctan2(p1[1],p1[0])
+                sign = np.arctan2(p2[1], p2[0]) - np.arctan2(p1[1], p1[0])
 
-            # Temporary
-            '''vs_mag = 0.2
-            dist = np.linalg.norm(efpts[0][1] - efpts[0][0])
-            sign = 1.0
-            peri = len(efpts)*dist
-
-            from pyfr.mpiutil import get_comm_rank_root
-            comm, rank, root = get_comm_rank_root()
-
-            ismv = 0.0
-            if rank == 0:
-                ismv = 1.0'''
-
-            if sign < 0:
-                vs_mag = -vs_mag
-
-            ismv = tplargs['ismv']
-            if ismv > 0.0:
-                vs_mag = -vs_mag
+            if sign < 0: vs_mag = -vs_mag
+            if ismv > 0.0: vs_mag = -vs_mag
 
             # Prepare Kernel (Python)
             def prepare_mortar():
                 class prepare(ComputeKernel):
                     def run(self, queue, t=0):
                         # Relative position (considering the uniform slide plane)
-                        #t = 1.0
                         move = vs_mag*t
                         move -= peri*int(move/peri)
 
@@ -198,7 +205,7 @@ class EulerMPIInters(BaseAdvectionMPIInters):
                         # How many edges to be passed
                         n = int(n)
 
-                        if res >= -1e-15:
+                        if vs_mag > 0.0:
                             idx1 = list(range(ninters - n, ninters)) + list(range(0, ninters - n))
                             idx2 = list(range(ninters - 1 - n, ninters)) + list(range(0, ninters - 1 - n))
                         else:
@@ -230,7 +237,26 @@ class EulerMPIInters(BaseAdvectionMPIInters):
 
                         invP0._set(res*np.dot(invM, S0.transpose()))
                         invP1._set((1.0-res)*np.dot(invM, S1.transpose()))
-                        pass
+
+                        if mode == 'rotation':
+                            # Pnorm interpolation
+                            # off, len = 0, res
+                            # R = fb.nodal_basis_at(2*off-1 + len*(pts + 1))
+                            R = np.dot(invM, S0)
+                            tmp = np.einsum('ij, klj->kli', R, norm_pnorm_int.get().reshape(2, -1, nfpts))
+                            norm_pnorm_lhs0.set(tmp.reshape(2, -1))
+
+                            tmp = np.einsum('ij, klj->kli', R, plocfpt.get().reshape(2, -1, nfpts))
+                            plocfpt_lhs0.set(tmp.reshape(2, -1))
+
+                            # off, len = res, 1.0-res
+                            # R = fb.nodal_basis_at(2*off-1 + len*(pts + 1))
+                            R = np.dot(invM, S1)
+                            tmp = np.einsum('ij, klj->kli', R, norm_pnorm_int.get().reshape(2, -1, nfpts))
+                            norm_pnorm_lhs1.set(tmp.reshape(2, -1))
+
+                            tmp = np.einsum('ij, klj->kli', R, plocfpt.get().reshape(2, -1, nfpts))
+                            plocfpt_lhs1.set(tmp.reshape(2, -1))
                 return prepare()
 
             def slide_flux():
@@ -249,10 +275,10 @@ class EulerMPIInters(BaseAdvectionMPIInters):
 
                 comm = [self._be.kernel('mpicfluxs', tplargs, dims=[self.ninterfpts],
                                        ul=mscal_lhs0, ur=mscal_rhs1,
-                                       magnl=self._mag_pnorm_lhs, nl=self._norm_pnorm_lhs),
+                                       magnl=mag_pnorm_int, nl=norm_pnorm_lhs0, ploc=plocfpt_lhs0),
                         self._be.kernel('mpicfluxs', tplargs, dims=[self.ninterfpts],
                                        ul=mscal_lhs1, ur=mscal_rhs0,
-                                       magnl=self._mag_pnorm_lhs, nl=self._norm_pnorm_lhs),
+                                       magnl=mag_pnorm_int, nl=norm_pnorm_lhs1, ploc=plocfpt_lhs1),
                         ]
 
                 copy_post = [self._be.kernel('mul', invP0, mscal_fpts0, out=mscal_tmpm),
@@ -284,6 +310,10 @@ class EulerBaseBCInters(BaseAdvectionBCInters):
             'bccflux', tplargs, dims=[self.ninterfpts], ul=self._scal0_lhs,
             magnl=self._mag_pnorm_lhs, nl=self._norm_pnorm_lhs, ploc=plocfpt
         )
+
+        if self.cfg.get('solver-moving-terms', 'mode', None) == 'rotation':
+            self._rotfvec('pnorm_rot', self._norm_pnorm_lhs)
+            self._rotfvec('plocfpts_rot', plocfpt)
 
 
 class EulerSupInflowBCInters(EulerBaseBCInters):

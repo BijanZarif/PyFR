@@ -62,6 +62,19 @@ class EulerElements(BaseFluidElements, BaseAdvectionElements):
                 f=self._vect_qpts,
                 ploc=plocqpts
             )
+
+            if self.cfg.get('solver-moving-terms', 'mode', None) == 'rotation':
+                backend.pointwise.register('pyfr.solvers.baseadvec.kernels.rotfvec')
+                self.kernels['plocupts_rot'] = lambda: backend.kernel(
+                    'rotfvec', tplargs=tplargs, dims=[self.nqpts, self.neles],
+                    vecs=plocqpts
+                )
+
+                backend.pointwise.register('pyfr.solvers.baseadvec.kernels.rotsmat')
+                self.kernels['smats_rot'] = lambda: backend.kernel(
+                    'rotsmat', tplargs=tplargs, dims=[self.nqpts, self.neles],
+                    smats=self._smats_u
+                )
         else:
             # Update moving grid velocity terms
             mvex, mode, plocupts = get_mv_grid_terms(self, self.cfg, self._privarmap, 'upts')
@@ -75,3 +88,16 @@ class EulerElements(BaseFluidElements, BaseAdvectionElements):
                 f=self._vect_upts,
                 ploc=plocupts
             )
+
+            if self.cfg.get('solver-moving-terms', 'mode', None) == 'rotation':
+                backend.pointwise.register('pyfr.solvers.baseadvec.kernels.rotfvec')
+                self.kernels['plocupts_rot'] = lambda: backend.kernel(
+                    'rotfvec', tplargs=tplargs, dims=[self.nupts, self.neles],
+                    vecs=plocupts
+                )
+
+                backend.pointwise.register('pyfr.solvers.baseadvec.kernels.rotsmat')
+                self.kernels['smats_rot'] = lambda: backend.kernel(
+                    'rotsmat', tplargs=tplargs, dims=[self.nupts, self.neles],
+                    smats=self._smats_u
+                )

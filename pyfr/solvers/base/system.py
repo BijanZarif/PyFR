@@ -43,6 +43,12 @@ class BaseSystem(object, metaclass=ABCMeta):
         bc_inters = self._load_bc_inters(rallocs, mesh, elemap)
         backend.commit()
 
+        # Grid Rotation matrix for sliding mesh
+        self._rotmat = backend.matrix((2, 2))
+        int_inters._rotmat = self._rotmat
+        mpi_inters._rotmat = self._rotmat
+        bc_inters._rotmat = self._rotmat
+
         # Prepare the queues and kernels
         self._gen_queues()
         self._gen_kernels(eles, int_inters, mpi_inters, bc_inters)
@@ -157,3 +163,28 @@ class BaseSystem(object, metaclass=ABCMeta):
 
     def ele_scal_upts(self, idx):
         return [eb[idx].get() for eb in self.ele_banks]
+
+    def rotate_grid(self, dt):
+        from pyfr.mpiutil import get_comm_rank_root
+        import numpy as np
+        comm, rank, root = get_comm_rank_root()
+
+        pe = self.cfg.get('solver-moving-terms', 'moving_id', None)
+        omg = self.cfg.get('solver-moving-terms', 'rot-vel', '0')
+        omg = eval(re.sub(r'\b(pi)\b', 'np.pi', omg))*dt
+        mode = self.cfg.get('solver-moving-terms', 'mode', None)
+
+        if str(rank) == pe and mode == 'rotation':
+            self._rotmat.set(np.array([[np.cos(omg), -np.sin(omg)], [np.sin(omg), np.cos(omg)]]))
+
+            self._queues[0] % self._kernels['eles', 'smats_rot'](omg=omg)
+            self._queues[0] % self._kernels['eles', 'plocupts_rot'](omg=omg)
+
+            self._queues[0] % self._kernels['iint', 'pnorm_rot']()
+            self._queues[0] % self._kernels['iint', 'plocfpts_rot']()
+
+            self._queues[0] % self._kernels['bcint', 'pnorm_rot']()
+            self._queues[0] % self._kernels['bcint', 'plocfpts_rot']()
+
+            self._queues[0] % self._kernels['mpiint', 'pnorm_rot']()
+            self._queues[0] % self._kernels['mpiint', 'plocfpts_rot']()

@@ -108,3 +108,20 @@ class BaseInters(object):
     @memoize
     def ploc_at(self, lhs):
         return self._const_mat(lhs, 'get_fpts_for_inter')
+
+    def _rotfvec(self, name, mat):
+        from pyfr.backends.base.kernels import ComputeMetaKernel, ComputeKernel
+        temp = self._be.matrix(mat.ioshape)
+
+        def rot():
+            mul = self._be.kernel(
+                'mul', self._rotmat, mat,
+                out=temp
+            )
+            copy = self._be.kernel(
+                'copy', mat, temp
+            )
+
+            return ComputeMetaKernel([mul, copy])
+
+        self.kernels[name] = rot
