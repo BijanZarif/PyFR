@@ -106,11 +106,11 @@ class TVDRK3Stepper(BaseStepper):
         add(0.0, r1, 1.0, r0, dt, r2)
 
         # Second stage; r2 = -∇·f(r1); r1 = 0.75*r0 + 0.25*r1 + 0.25*dt*r2
-        rhs(t + dt, r1, r2)
+        rhs(t + 0.0*dt, r1, r2)
         add(0.25, r1, 0.75, r0, 0.25*dt, r2)
 
         # Third stage; r2 = -∇·f(r1); r1 = 1.0/3.0*r0 + 2.0/3.0*r1 + 2.0/3.0*dt*r2
-        rhs(t + 0.5*dt, r1, r2)
+        rhs(t + 0.0*0.5*dt, r1, r2)
         add(2.0/3.0, r1, 1.0/3.0, r0, 2.0/3.0*dt, r2)
 
         # Return the index of the bank containing u(t + dt)

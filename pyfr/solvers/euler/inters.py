@@ -106,8 +106,19 @@ class EulerMPIInters(BaseAdvectionMPIInters):
             mag_pnorm_int = self._mag_pnorm_lhs
 
             # Additional norm and plocfpts
+            norm = norm_pnorm_int.get()
+            mag = mag_pnorm_int.get()
+            norm = norm*mag
+            mag = np.array([[1]*ninterfpts])
+
+            norm_pnorm_int._set(norm)
+            mag_pnorm_int._set(mag)
+
             norm_pnorm_lhs0 = self._be.matrix(norm_pnorm_int.ioshape, initval= norm_pnorm_int.get(), tags={'align'})
             norm_pnorm_lhs1 = self._be.matrix(norm_pnorm_int.ioshape, initval= norm_pnorm_int.get(), tags={'align'})
+
+            # mag_pnorm_lhs0 = self._be.matrix(mag_pnorm_int.ioshape, initval= mag_pnorm_int.get(), tags={'align'})
+            # mag_pnorm_lhs1 = self._be.matrix(mag_pnorm_int.ioshape, initval= mag_pnorm_int.get(), tags={'align'})
 
             if mode == 'rotation':
                 plocfpt_lhs0 = self._be.matrix(plocfpt.ioshape, tags={'align'})
@@ -132,12 +143,17 @@ class EulerMPIInters(BaseAdvectionMPIInters):
             antialias = cfg.get('solver', 'anti-alias', 'none')
             antialias = {s.strip() for s in antialias.split(',')}
             if 'surf-flux' in antialias:
+                order_map = {'gauss-legendre': lambda x: (x-1)//2,
+                             'gauss-legendre-lobatto': lambda x: (x+1)//2}
+
                 qdeg = cfg.getint('solver-interfaces-' + kind, 'quad-deg')
+                qrule = cfg.get('solver-interfaces-' + kind, 'quad-pts')
+                order = order_map[qrule](qdeg)
                 pts = get_quadrule(kind, rule=rule, qdeg=qdeg).pts
+                fb = get_polybasis(kind, order+1, pts)
             else:
                 pts = get_quadrule(kind, rule=rule, npts=order+1).pts
-
-            fb = get_polybasis(kind, order+1, pts)
+                fb = get_polybasis(kind, order+1, pts)
 
             # Matrix function
             @ft.lru_cache(maxsize=None)
@@ -149,6 +165,7 @@ class EulerMPIInters(BaseAdvectionMPIInters):
                 return np.einsum('i...,ij,ik', qr.wts, fe, fp)
 
             M = projmat(0, 1)
+            # M = np.array([[2/3, 1/3], [1/3, 2/3]])
             invM = np.linalg.inv(M)
 
             # Operation Matrix
@@ -185,6 +202,19 @@ class EulerMPIInters(BaseAdvectionMPIInters):
                 p1 = efpts[0][0]
                 sign = np.arctan2(p2[1], p2[0]) - np.arctan2(p1[1], p1[0])
 
+            '''# Temporary
+            vs_mag = 0.02
+            peri = 2.0
+            dist = peri/len(efpts)
+            sign = 1.0
+
+            from pyfr.mpiutil import get_comm_rank_root
+            comm, rank, root = get_comm_rank_root()
+
+            ismv = 0.0
+            if rank == 0:
+                ismv = 1.0'''
+
             if sign < 0: vs_mag = -vs_mag
             if ismv > 0.0: vs_mag = -vs_mag
 
@@ -193,6 +223,7 @@ class EulerMPIInters(BaseAdvectionMPIInters):
                 class prepare(ComputeKernel):
                     def run(self, queue, t=0):
                         # Relative position (considering the uniform slide plane)
+                        # t = 1.0
                         move = vs_mag*t
                         move -= peri*int(move/peri)
 
@@ -229,6 +260,8 @@ class EulerMPIInters(BaseAdvectionMPIInters):
                         S1 = projmat(res,  1.0-res)
                         S2 = projmat(0, 1.0-res)
                         S3 = projmat(1.0-res, res)
+                        '''S0 = S2 = np.array([[1/3, 2/3], [1/6, 5/6]])
+                        S1 = S3 = np.array([[5/6, 1/6], [2/3, 1/3]])'''
 
                         P0._set(np.dot(invM, S0))
                         P1._set(np.dot(invM, S1))
@@ -240,20 +273,26 @@ class EulerMPIInters(BaseAdvectionMPIInters):
 
                         if mode == 'rotation':
                             # Pnorm interpolation
-                            # off, len = 0, res
-                            # R = fb.nodal_basis_at(2*off-1 + len*(pts + 1))
+                            #off, len = 0, res
+                            #R = fb.nodal_basis_at(2*off-1 + len*(pts + 1))
                             R = np.dot(invM, S0)
                             tmp = np.einsum('ij, klj->kli', R, norm_pnorm_int.get().reshape(2, -1, nfpts))
                             norm_pnorm_lhs0.set(tmp.reshape(2, -1))
 
+                            # tmp = np.einsum('ij, klj->kli', R, mag_pnorm_int.get().reshape(1, -1, nfpts))
+                            # mag_pnorm_lhs0.set(tmp.reshape(1, -1))
+
                             tmp = np.einsum('ij, klj->kli', R, plocfpt.get().reshape(2, -1, nfpts))
                             plocfpt_lhs0.set(tmp.reshape(2, -1))
 
-                            # off, len = res, 1.0-res
-                            # R = fb.nodal_basis_at(2*off-1 + len*(pts + 1))
+                            #off, len = res, 1.0-res
+                            #R = fb.nodal_basis_at(2*off-1 + len*(pts + 1))
                             R = np.dot(invM, S1)
                             tmp = np.einsum('ij, klj->kli', R, norm_pnorm_int.get().reshape(2, -1, nfpts))
                             norm_pnorm_lhs1.set(tmp.reshape(2, -1))
+
+                            # tmp = np.einsum('ij, klj->kli', R, mag_pnorm_int.get().reshape(1, -1, nfpts))
+                            # mag_pnorm_lhs1.set(tmp.reshape(1, -1))
 
                             tmp = np.einsum('ij, klj->kli', R, plocfpt.get().reshape(2, -1, nfpts))
                             plocfpt_lhs1.set(tmp.reshape(2, -1))

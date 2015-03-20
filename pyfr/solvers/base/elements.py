@@ -77,6 +77,17 @@ class BaseElements(object, metaclass=ABCMeta):
         # Construct the physical location operator matrix
         plocop = self._basis.sbasis.nodal_basis_at(self._basis.upts)
 
+        from pyfr.mpiutil import get_comm_rank_root
+        comm, rank, root = get_comm_rank_root()
+
+        '''eles = self.eles
+        omg = 0.02*np.pi
+        if rank == 0:
+            R = np.array([[np.cos(omg), -np.sin(omg)], [np.sin(omg), np.cos(omg)]])
+            eles[:] = np.einsum('ijk,lk->ijl', eles, R)
+
+            self.update_pnorm_fpts(omg)'''
+
         # Apply the operator to the mesh elements and reshape
         plocupts = np.dot(plocop, self.eles.reshape(self.nspts, -1))
         plocupts = plocupts.reshape(self.nupts, self.neles, self.ndims)
@@ -196,6 +207,7 @@ class BaseElements(object, metaclass=ABCMeta):
         # Jacobian and N is the normal for each fpt.  Using
         # J^{-1} = S/|J| where S are the smats, we have S^{T}.N.
         pnorm_fpts = np.einsum('ijlk,il->ijk', smats, self._basis.norm_fpts)
+        self._pnorm_fpts = pnorm_fpts
 
         # Compute the magnitudes of these flux point normals
         mag_pnorm_fpts = np.einsum('...i,...i', pnorm_fpts, pnorm_fpts)
@@ -295,3 +307,23 @@ class BaseElements(object, metaclass=ABCMeta):
     def get_fpts_for_inter(self, eidx, fidx):
         fpts_idx = self._srtd_face_fpts[fidx][eidx]
         return self._plocfpts[fpts_idx,eidx]
+
+    def update_pnorm_fpts(self, omg):
+        # smats = self._get_smats(self._basis.fpts).transpose(1, 3, 0, 2)
+        #smats0 = self._smats
+        R = np.array([[np.cos(omg), np.sin(omg)], [-np.sin(omg), np.cos(omg)]])
+        #smats = np.dot(smats0, R)
+
+        # We need to compute |J|*[(J^{-1})^{T}.N] where J is the
+        # Jacobian and N is the normal for each fpt.  Using
+        # J^{-1} = S/|J| where S are the smats, we have S^{T}.N.
+        #pnorm_fpts = np.einsum('ijlk,il->ijk', smats, self._basis.norm_fpts)
+        pnorm_fpts = np.dot(self._pnorm_fpts, R)
+
+        # Compute the magnitudes of these flux point normals
+        mag_pnorm_fpts = np.einsum('...i,...i', pnorm_fpts, pnorm_fpts)
+        mag_pnorm_fpts = np.sqrt(mag_pnorm_fpts)
+
+        # Normalize the physical normals at the flux points
+        self._norm_pnorm_fpts = pnorm_fpts / mag_pnorm_fpts[...,None]
+        self._mag_pnorm_fpts = mag_pnorm_fpts

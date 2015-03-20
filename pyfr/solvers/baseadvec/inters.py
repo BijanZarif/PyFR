@@ -111,6 +111,8 @@ class BaseAdvectionMPIInters(BaseInters):
             if j != i_curr and np.linalg.norm(swa_fpts[0][j] - end_pts) < 1e-8:
                 tmp[i+1] = -j
 
+        # tmp = [0, 8, 17, 13, 5, -14, -6, -2, -11, -19, -10, -1, -15, -12, -3, 16, 7, 4, 18, 9]
+
         perm = []
         for t in tmp:
             if t > -1:
