@@ -64,16 +64,19 @@ class EulerElements(BaseFluidElements, BaseAdvectionElements):
             )
 
             if self.cfg.get('solver-moving-terms', 'mode', None) == 'rotation':
+                smats0 = self._be.matrix(self._smats_u.ioshape, initval=self._smats_u.get())
+                plocqpts0 = self._be.matrix(plocqpts.ioshape, initval=plocqpts.get())
+
                 backend.pointwise.register('pyfr.solvers.baseadvec.kernels.rotfvec')
                 self.kernels['plocupts_rot'] = lambda: backend.kernel(
                     'rotfvec', tplargs=tplargs, dims=[self.nqpts, self.neles],
-                    vecs=plocqpts
+                    vecs0=plocqpts0, vecs=plocqpts
                 )
 
                 backend.pointwise.register('pyfr.solvers.baseadvec.kernels.rotsmat')
                 self.kernels['smats_rot'] = lambda: backend.kernel(
                     'rotsmat', tplargs=tplargs, dims=[self.nqpts, self.neles],
-                    smats=self._smats_u
+                    smats0=smats0, smats=self._smats_u
                 )
         else:
             # Update moving grid velocity terms
@@ -90,14 +93,17 @@ class EulerElements(BaseFluidElements, BaseAdvectionElements):
             )
 
             if self.cfg.get('solver-moving-terms', 'mode', None) == 'rotation':
+                smats0 = self._be.matrix(self._smats_u.ioshape, initval=self._smats_u.get())
+                plocupts0 = self._be.matrix(plocupts.ioshape, initval=plocupts.get())
+
                 backend.pointwise.register('pyfr.solvers.baseadvec.kernels.rotfvec')
                 self.kernels['plocupts_rot'] = lambda: backend.kernel(
                     'rotfvec', tplargs=tplargs, dims=[self.nupts, self.neles],
-                    vecs=plocupts
+                    vecs0=plocupts0, vecs=plocupts
                 )
 
                 backend.pointwise.register('pyfr.solvers.baseadvec.kernels.rotsmat')
                 self.kernels['smats_rot'] = lambda: backend.kernel(
                     'rotsmat', tplargs=tplargs, dims=[self.nupts, self.neles],
-                    smats=self._smats_u
+                    smats0=smats0, smats=self._smats_u
                 )

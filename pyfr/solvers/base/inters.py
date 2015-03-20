@@ -111,17 +111,14 @@ class BaseInters(object):
 
     def _rotfvec(self, name, mat):
         from pyfr.backends.base.kernels import ComputeMetaKernel, ComputeKernel
-        temp = self._be.matrix(mat.ioshape)
+        mat0 = self._be.matrix(mat.ioshape, initval=mat.get())
 
         def rot():
             mul = self._be.kernel(
-                'mul', self._rotmat, mat,
-                out=temp
-            )
-            copy = self._be.kernel(
-                'copy', mat, temp
+                'mul', self._rotmat, mat0,
+                out=mat
             )
 
-            return ComputeMetaKernel([mul, copy])
+            return ComputeMetaKernel([mul])
 
         self.kernels[name] = rot

@@ -45,10 +45,6 @@ class EulerMPIInters(BaseAdvectionMPIInters):
         mvex, mode, plocfpt = get_mv_grid_terms(self, self.cfg, self._privarmap, args[1])
         tplargs.update(mvex)
 
-        if self.cfg.get('solver-moving-terms', 'mode', None) == 'rotation':
-            self._rotfvec('pnorm_rot', self._norm_pnorm_lhs)
-            self._rotfvec('plocfpts_rot', plocfpt)
-
         if mode is None:
             self.kernels['comm_flux'] = lambda: self._be.kernel(
                 'mpicflux', tplargs, dims=[self.ninterfpts],
@@ -123,6 +119,9 @@ class EulerMPIInters(BaseAdvectionMPIInters):
             if mode == 'rotation':
                 plocfpt_lhs0 = self._be.matrix(plocfpt.ioshape, tags={'align'})
                 plocfpt_lhs1 = self._be.matrix(plocfpt.ioshape, tags={'align'})
+
+                self._rotfvec('pnorm_rot', self._norm_pnorm_lhs)
+                self._rotfvec('plocfpts_rot', plocfpt)
             else:
                 plocfpt_lhs0 = None
                 plocfpt_lhs1 = None
@@ -203,7 +202,7 @@ class EulerMPIInters(BaseAdvectionMPIInters):
                 sign = np.arctan2(p2[1], p2[0]) - np.arctan2(p1[1], p1[0])
 
             '''# Temporary
-            vs_mag = 0.02
+            vs_mag = 0.015
             peri = 2.0
             dist = peri/len(efpts)
             sign = 1.0
@@ -212,7 +211,7 @@ class EulerMPIInters(BaseAdvectionMPIInters):
             comm, rank, root = get_comm_rank_root()
 
             ismv = 0.0
-            if rank == 0:
+            if rank == 1:
                 ismv = 1.0'''
 
             if sign < 0: vs_mag = -vs_mag
@@ -223,7 +222,7 @@ class EulerMPIInters(BaseAdvectionMPIInters):
                 class prepare(ComputeKernel):
                     def run(self, queue, t=0):
                         # Relative position (considering the uniform slide plane)
-                        # t = 1.0
+                        #t = 1.0
                         move = vs_mag*t
                         move -= peri*int(move/peri)
 

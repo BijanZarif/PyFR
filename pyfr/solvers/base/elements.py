@@ -77,12 +77,12 @@ class BaseElements(object, metaclass=ABCMeta):
         # Construct the physical location operator matrix
         plocop = self._basis.sbasis.nodal_basis_at(self._basis.upts)
 
-        from pyfr.mpiutil import get_comm_rank_root
+        '''from pyfr.mpiutil import get_comm_rank_root
         comm, rank, root = get_comm_rank_root()
 
-        '''eles = self.eles
-        omg = 0.02*np.pi
-        if rank == 0:
+        eles = self.eles
+        omg = 0.015*np.pi
+        if rank == 1:
             R = np.array([[np.cos(omg), -np.sin(omg)], [np.sin(omg), np.cos(omg)]])
             eles[:] = np.einsum('ijk,lk->ijl', eles, R)
 

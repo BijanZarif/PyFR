@@ -14,6 +14,8 @@ class BaseAdvectionSystem(BaseSystem):
         self.eles_scal_upts_inb.active = uinbank
         self.eles_scal_upts_outb.active = foutbank
 
+        self.rotate_grid(t)
+
         q1 << kernels['eles', 'disu']()
         q1 << kernels['mpiint', 'scal_fpts_pack']()
         runall([q1])

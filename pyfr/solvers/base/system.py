@@ -164,14 +164,14 @@ class BaseSystem(object, metaclass=ABCMeta):
     def ele_scal_upts(self, idx):
         return [eb[idx].get() for eb in self.ele_banks]
 
-    def rotate_grid(self, dt):
+    def rotate_grid(self, t):
         from pyfr.mpiutil import get_comm_rank_root
         import numpy as np
         comm, rank, root = get_comm_rank_root()
 
         pe = self.cfg.get('solver-moving-terms', 'moving_id', None)
         omg = self.cfg.get('solver-moving-terms', 'rot-vel', '0')
-        omg = eval(re.sub(r'\b(pi)\b', 'np.pi', omg))*dt
+        omg = eval(re.sub(r'\b(pi)\b', 'np.pi', omg))*t
         mode = self.cfg.get('solver-moving-terms', 'mode', None)
 
         if str(rank) == pe and mode == 'rotation':

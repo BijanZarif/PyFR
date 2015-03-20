@@ -39,9 +39,6 @@ class BaseController(BaseIntegrator):
         if self._ffreq and self.nacptsteps % self._ffreq == 0:
             self._system.filt(idxcurr)
 
-        # Grid Rotation
-        self._system.rotate_grid(dt)
-
         # Fire off any event handlers
         self.completed_step_handlers(self)
 
