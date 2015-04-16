@@ -12,13 +12,19 @@ class BaseAdvectionDiffusionSystem(BaseAdvectionSystem):
         self.eles_scal_upts_inb.active = uinbank
         self.eles_scal_upts_outb.active = foutbank
 
+        q1 << kernels['eles', 'avis']()
         q1 << kernels['eles', 'disu']()
+        q1 << kernels['mpiint', 'avis_fpts_pack']()
         q1 << kernels['mpiint', 'scal_fpts_pack']()
         runall([q1])
 
         q1 << kernels['iint', 'con_u']()
         q1 << kernels['bcint', 'con_u']()
         q1 << kernels['eles', 'tgradpcoru_upts']()
+
+        q2 << kernels['mpiint', 'avis_fpts_send']()
+        q2 << kernels['mpiint', 'avis_fpts_recv']()
+        q2 << kernels['mpiint', 'avis_fpts_unpack']()
 
         q2 << kernels['mpiint', 'scal_fpts_send']()
         q2 << kernels['mpiint', 'scal_fpts_recv']()

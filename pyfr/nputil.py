@@ -40,6 +40,7 @@ _npeval_syms = {
     'sin': np.sin, 'asin': np.arcsin,
     'cos': np.cos, 'acos': np.arccos,
     'tan': np.tan, 'atan': np.arctan, 'atan2': np.arctan2,
+    'tanh': np.tanh,
     'abs': np.abs, 'pow': np.power, 'sqrt': np.sqrt,
     'tanh': np.tanh, 'pi': np.pi}
 

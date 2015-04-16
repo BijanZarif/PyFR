@@ -17,6 +17,14 @@ class NavierStokesIntInters(BaseAdvectionDiffusionIntInters):
         tplargs = dict(ndims=self.ndims, nvars=self.nvars, rsolver=rsolver,
                        visc_corr=visc_corr, c=self._tpl_c)
 
+        if self.cfg.get('solver-avis', 'amu0', '0'):
+            tplargs.update(dict(art_vis='mu'))
+            amul = self._avis0_lhs
+            amur = self._avis0_rhs
+        else:
+            tplargs.update(dict(art_vis='none'))
+            amul = amur = None
+
         self._be.pointwise.register('pyfr.solvers.navstokes.kernels.intconu')
         self._be.pointwise.register('pyfr.solvers.navstokes.kernels.intcflux')
 
@@ -29,6 +37,7 @@ class NavierStokesIntInters(BaseAdvectionDiffusionIntInters):
             'intcflux', tplargs=tplargs, dims=[self.ninterfpts],
             ul=self._scal0_lhs, ur=self._scal0_rhs,
             gradul=self._vect0_lhs, gradur=self._vect0_rhs,
+            amul=amul, amur=amur,
             magnl=self._mag_pnorm_lhs, magnr=self._mag_pnorm_rhs,
             nl=self._norm_pnorm_lhs
         )
@@ -44,6 +53,14 @@ class NavierStokesMPIInters(BaseAdvectionDiffusionMPIInters):
         tplargs = dict(ndims=self.ndims, nvars=self.nvars, rsolver=rsolver,
                        visc_corr=visc_corr, c=self._tpl_c)
 
+        if self.cfg.get('solver-avis', 'amu0', '0'):
+            tplargs.update(dict(art_vis='mu'))
+            amul = self._avis0_lhs
+            amur = self._avis0_rhs
+        else:
+            tplargs.update(dict(art_vis='none'))
+            amul = amur = None
+
         self._be.pointwise.register('pyfr.solvers.navstokes.kernels.mpiconu')
         self._be.pointwise.register('pyfr.solvers.navstokes.kernels.mpicflux')
 
@@ -55,6 +72,7 @@ class NavierStokesMPIInters(BaseAdvectionDiffusionMPIInters):
             'mpicflux', tplargs=tplargs, dims=[self.ninterfpts],
             ul=self._scal0_lhs, ur=self._scal0_rhs,
             gradul=self._vect0_lhs, gradur=self._vect0_rhs,
+            amul=amul, amur=amur,
             magnl=self._mag_pnorm_lhs, nl=self._norm_pnorm_lhs
         )
 
@@ -72,6 +90,13 @@ class NavierStokesBaseBCInters(BaseAdvectionDiffusionBCInters):
                        visc_corr=visc_corr, c=self._tpl_c, bctype=self.type,
                        bccfluxstate=self.cflux_state)
 
+        if self.cfg.get('solver-avis', 'amu0', '0'):
+            tplargs.update(dict(art_vis='mu'))
+            amul = self._avis0_lhs
+        else:
+            tplargs.update(dict(art_vis='none'))
+            amul = None
+
         self._be.pointwise.register('pyfr.solvers.navstokes.kernels.bcconu')
         self._be.pointwise.register('pyfr.solvers.navstokes.kernels.bccflux')
 
@@ -82,7 +107,7 @@ class NavierStokesBaseBCInters(BaseAdvectionDiffusionBCInters):
         )
         self.kernels['comm_flux'] = lambda: self._be.kernel(
             'bccflux', tplargs=tplargs, dims=[self.ninterfpts],
-            ul=self._scal0_lhs, gradul=self._vect0_lhs,
+            ul=self._scal0_lhs, gradul=self._vect0_lhs, amul=amul,
             magnl=self._mag_pnorm_lhs, nl=self._norm_pnorm_lhs
         )
 
