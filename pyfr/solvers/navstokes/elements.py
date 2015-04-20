@@ -57,13 +57,30 @@ class NavierStokesElements(BaseFluidElements, BaseAdvectionDiffusionElements):
                 # Element-wise Operation
                 ubdegs = self._basis.ubasis.degrees
                 tplargs['c'].update(self.cfg.items_as('solver-avis', float))
-                tplargs.update(dict(nupts=self.nupts, nfpts=self.nfpts, lds=self._avis_upts.leaddim,
+                tplargs.update(dict(nupts=self.nupts, nfpts=self.nfpts,
                                     order=self._basis.order, ubdegs=ubdegs))
 
+                # Column view for avis_upts/fpts
+                def col_view(mat):
+                    ioshape = mat.ioshape
+                    dim = len(ioshape)
+                    if dim == 3:
+                        vshape = (ioshape[0],)
+                        nelespts = ioshape[-1]
+                        rcmap = np.array([[j, i] for i in range(ioshape[2]) for j in range(ioshape[1])])
+                        matmap = np.array([mat.mid]*nelespts)
+                        stridemap = np.array([[mat.leaddim]]*nelespts)
+
+                    return backend.view(matmap, rcmap, stridemap, vshape)
+
+                self._avis_upts_cv = col_view(self._avis_upts)
+
+                self._avis_fpts_cv = col_view(self._avis_fpts)
+                self._avis_upts_temp_cv = col_view(self._avis_upts_temp)
                 avis = backend.kernel('avis', tplargs, dims=[self.neles],
                                       ubdegs=ubdegs,
-                                      s=self._avis_upts_temp,
-                                      amu_e=self._avis_upts, amu_f=self._avis_fpts)
+                                      s=self._avis_upts_temp_cv,
+                                      amu_e=self._avis_upts_cv, amu_f=self._avis_fpts_cv)
 
                 return ComputeMetaKernel([ent, mul, avis])
 

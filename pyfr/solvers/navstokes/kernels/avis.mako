@@ -3,23 +3,16 @@
 <%namespace module='pyfr.backends.base.makoutil' name='pyfr'/>
 
 <%pyfr:kernel name='avis' ndim='1'
-              s='inout fpdtype_t'
-              amu_e='out fpdtype_t'
-              amu_f='out fpdtype_t'>
-
-    // Pointer for entropy, artificial viscosity on upts/fpts
-    fpdtype_t* s_p = &s;
-    fpdtype_t* amu_e_p = &amu_e;
-    fpdtype_t* amu_f_p = &amu_f;
-    fpdtype_t s_e[${nupts}];
+              s='out view fpdtype_t[${str(nupts)}]'
+              amu_e='out view fpdtype_t[${str(nupts)}]'
+              amu_f='out view fpdtype_t[${str(nfpts)}]'>
 
     // Modal of entropy, energy of mode
     fpdtype_t totEn = 0.0, pnEn = 0.0;
 % for i in range(nupts):
-    s_e[${i}] = *(s_p + ${i*lds});
-    totEn += s_e[${i}]*s_e[${i}];
+    totEn += s[${i}]*s[${i}];
 % if ubdegs[i] >= order:
-    pnEn += s_e[${i}]*s_e[${i}];
+    pnEn += s[${i}]*s[${i}];
 % endif
 % endfor
 
@@ -34,11 +27,11 @@
 
     // Copy to all spts/fpts
 % for i in range(nupts):
-    *(amu_e_p + ${i*lds}) = mu;
+    amu_e[${i}] = mu;
 % endfor
 
 % for i in range(nfpts):
-    *(amu_f_p + ${i*lds}) = mu;
+    amu_f[${i}] = mu;
 % endfor
 
 </%pyfr:kernel>
