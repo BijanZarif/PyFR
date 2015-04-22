@@ -50,7 +50,7 @@
     fout[1][3] += u*t_xy + v*t_yy + -mu_c*${c['gamma']/c['Pr']}*T_y;
 </%pyfr:macro>
 % elif ndims == 3:
-<%pyfr:macro name='viscous_flux_add' params='uin, grad_uin, fout'>
+<%pyfr:macro name='viscous_flux_add' params='uin, grad_uin, amuin, fout'>
     fpdtype_t rho  = uin[0];
     fpdtype_t rhou = uin[1], rhov = uin[2], rhow = uin[3];
     fpdtype_t E    = uin[4];

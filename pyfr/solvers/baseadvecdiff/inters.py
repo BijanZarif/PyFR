@@ -19,7 +19,7 @@ class BaseAdvectionDiffusionIntInters(BaseAdvectionIntInters):
         self._tpl_c.update(cfg.items_as('solver-interfaces', float))
 
         # Generate the additional view matrices for artificial Viscosity
-        if self.cfg.get('solver-avis', 'amu0', '0'):
+        if self.cfg.getfloat('solver-avis', 'amu0', 0.0):
             self._avis0_lhs = self._avis_view(lhs, 'get_avis_fpts_for_inter')
             self._avis0_rhs = self._avis_view(rhs, 'get_avis_fpts_for_inter')
 
@@ -82,7 +82,7 @@ class BaseAdvectionDiffusionMPIInters(BaseAdvectionMPIInters):
             self.kernels['vect_fpts_unpack'] = lambda: NullComputeKernel()
 
         # Generate the additional view matrices for artificial Viscosity
-        if self.cfg.get('solver-avis', 'amu0', '0'):
+        if self.cfg.getfloat('solver-avis', 'amu0', 0.0):
             self._avis0_lhs = self._avis_xchg_view(lhs, 'get_avis_fpts_for_inter')
             self._avis0_rhs = be.xchg_matrix_for_view(self._avis0_lhs)
 
@@ -122,5 +122,5 @@ class BaseAdvectionDiffusionBCInters(BaseAdvectionBCInters):
         self._tpl_c.update(cfg.items_as('solver-interfaces', float))
 
         # Generate the additional view matrices for artificial Viscosity
-        if self.cfg.get('solver-avis', 'amu0', '0'):
+        if self.cfg.getfloat('solver-avis', 'amu0', 0.0):
             self._avis0_lhs = self._avis_view(lhs, 'get_avis_fpts_for_inter')

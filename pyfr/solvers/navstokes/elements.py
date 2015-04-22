@@ -19,7 +19,7 @@ class NavierStokesElements(BaseFluidElements, BaseAdvectionDiffusionElements):
                        visc_corr=visc_corr,
                        c=self.cfg.items_as('constants', float))
 
-        if self.cfg.get('solver-avis', 'amu0', '0'):
+        if self.cfg.getfloat('solver-avis', 'amu0', 0.0):
             amu = self._avis_upts
             tplargs.update(dict(art_vis='mu'))
         else:

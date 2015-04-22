@@ -153,7 +153,7 @@ class BaseElements(object, metaclass=ABCMeta):
                                               tags=inb.tags)
 
         # Allocate required scratch space for artificial viscosity
-        if self.cfg.get('solver-avis', 'amu0', '0'):
+        if self.cfg.getfloat('solver-avis', 'amu0', 0.0):
             self._avis_upts = avis = backend.matrix((nupts, 1, neles), tags={'align'})
             self._avis_fpts = alloc('avis_fpts', (nfpts, 1, neles))
             aliases = next((m for m in abufs if m.nbytes >= avis.nbytes), None)

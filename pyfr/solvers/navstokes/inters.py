@@ -17,7 +17,7 @@ class NavierStokesIntInters(BaseAdvectionDiffusionIntInters):
         tplargs = dict(ndims=self.ndims, nvars=self.nvars, rsolver=rsolver,
                        visc_corr=visc_corr, c=self._tpl_c)
 
-        if self.cfg.get('solver-avis', 'amu0', '0'):
+        if self.cfg.getfloat('solver-avis', 'amu0', 0.0):
             tplargs.update(dict(art_vis='mu'))
             amul = self._avis0_lhs
             amur = self._avis0_rhs
@@ -53,7 +53,7 @@ class NavierStokesMPIInters(BaseAdvectionDiffusionMPIInters):
         tplargs = dict(ndims=self.ndims, nvars=self.nvars, rsolver=rsolver,
                        visc_corr=visc_corr, c=self._tpl_c)
 
-        if self.cfg.get('solver-avis', 'amu0', '0'):
+        if self.cfg.getfloat('solver-avis', 'amu0', 0.0):
             tplargs.update(dict(art_vis='mu'))
             amul = self._avis0_lhs
             amur = self._avis0_rhs
@@ -90,7 +90,7 @@ class NavierStokesBaseBCInters(BaseAdvectionDiffusionBCInters):
                        visc_corr=visc_corr, c=self._tpl_c, bctype=self.type,
                        bccfluxstate=self.cflux_state)
 
-        if self.cfg.get('solver-avis', 'amu0', '0'):
+        if self.cfg.getfloat('solver-avis', 'amu0', 0.0):
             tplargs.update(dict(art_vis='mu'))
             amul = self._avis0_lhs
         else:
